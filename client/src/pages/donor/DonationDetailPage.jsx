@@ -179,8 +179,12 @@ export default function DonationDetailPage() {
                   <Building2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Matched Recipient Shelter</h3>
-                  <p className="text-[11px] text-slate-400">Multi-factor algorithmic match</p>
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    {donation.matchingMode === 'MANUAL' ? 'Directly Selected Shelter' : 'Matched Recipient Shelter'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {donation.matchingMode === 'MANUAL' ? 'Direct donor chosen destination' : 'Multi-factor algorithmic match'}
+                  </p>
                 </div>
               </div>
 

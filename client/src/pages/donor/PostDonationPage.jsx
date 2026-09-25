@@ -13,7 +13,10 @@ import {
   AlertTriangle,
   Navigation,
   ChevronLeft,
-  Save
+  Save,
+  Sparkles,
+  Building2,
+  Search
 } from 'lucide-react';
 
 export default function PostDonationPage() {
@@ -54,6 +57,47 @@ export default function PostDonationPage() {
   const [error, setError] = useState('');
   const [detectingGps, setDetectingGps] = useState(false);
 
+  // Shelter routing strategy state
+  const [matchingMode, setMatchingMode] = useState('AUTOMATIC');
+  const [targetNgoId, setTargetNgoId] = useState('');
+  const [ngos, setNgos] = useState([]);
+  const [loadingNgos, setLoadingNgos] = useState(false);
+  const [searchNgoQuery, setSearchNgoQuery] = useState('');
+
+  // Haversine distance calculator
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371; // Earth radius in km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c * 10) / 10;
+  };
+
+  // Fetch verified NGOs for direct shelter selection
+  useEffect(() => {
+    const fetchNgos = async () => {
+      try {
+        setLoadingNgos(true);
+        const res = await api.get('/ngos');
+        if (res.data?.success) {
+          setNgos(res.data.ngos || []);
+        }
+      } catch (err) {
+        console.error('Failed to load registered NGOs:', err);
+      } finally {
+        setLoadingNgos(false);
+      }
+    };
+    fetchNgos();
+  }, []);
+
   // Fetch existing data if in Edit Mode
   useEffect(() => {
     if (isEditMode) {
@@ -76,6 +120,10 @@ export default function PostDonationPage() {
               foodSafetyInfo: d.foodSafetyInfo || '',
               photo: d.photo || ''
             });
+            if (d.matchingMode) setMatchingMode(d.matchingMode);
+            if (d.matchedNgoId) {
+              setTargetNgoId(typeof d.matchedNgoId === 'object' ? d.matchedNgoId._id : d.matchedNgoId);
+            }
           }
         } catch (err) {
           setError('Failed to load donation details for editing.');
@@ -141,15 +189,26 @@ export default function PostDonationPage() {
       return;
     }
 
+    if (matchingMode === 'MANUAL' && !targetNgoId) {
+      setError('Please select a recipient NGO/Shelter from the directory, or select Automatic Matching.');
+      return;
+    }
+
     setSubmitting(true);
     try {
+      const payload = {
+        ...formData,
+        matchingMode,
+        targetNgoId: matchingMode === 'MANUAL' ? targetNgoId : undefined
+      };
+
       if (isEditMode) {
-        const res = await api.put(`/donations/${id}`, formData);
+        const res = await api.put(`/donations/${id}`, payload);
         if (res.data.success) {
           navigate(`/donor/donation/${id}`);
         }
       } else {
-        const res = await api.post('/donations', formData);
+        const res = await api.post('/donations', payload);
         if (res.data.success) {
           navigate(`/donor/donation/${res.data.donation._id}`);
         }
@@ -160,6 +219,30 @@ export default function PostDonationPage() {
       setSubmitting(false);
     }
   };
+
+  const filteredNgos = ngos
+    .map((ngo) => {
+      const dist = calculateDistance(
+        formData.latitude,
+        formData.longitude,
+        ngo.latitude,
+        ngo.longitude
+      );
+      return { ...ngo, calculatedDistance: dist };
+    })
+    .sort((a, b) => {
+      if (a.calculatedDistance === null) return 1;
+      if (b.calculatedDistance === null) return -1;
+      return a.calculatedDistance - b.calculatedDistance;
+    })
+    .filter((ngo) => {
+      if (!searchNgoQuery.trim()) return true;
+      const q = searchNgoQuery.toLowerCase();
+      const name = (ngo.organizationName || ngo.userId?.name || '').toLowerCase();
+      const addr = (ngo.address || '').toLowerCase();
+      const contact = (ngo.contactPerson || '').toLowerCase();
+      return name.includes(q) || addr.includes(q) || contact.includes(q);
+    });
 
   if (loading) {
     return (
@@ -418,17 +501,256 @@ export default function PostDonationPage() {
             </div>
           </div>
 
+          {/* Section 4: Shelter Redistribution Routing Strategy */}
+          <div className="space-y-4 pt-4 border-t border-slate-100">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                4. Shelter Redistribution Strategy
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Choose how your surplus food is matched and routed to recipient shelters.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Option A: Automatic Algorithmic Matching */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setMatchingMode('AUTOMATIC')}
+                onKeyDown={(e) => e.key === 'Enter' && setMatchingMode('AUTOMATIC')}
+                className={`p-4 rounded-2xl border text-left cursor-pointer transition-all relative ${
+                  matchingMode === 'AUTOMATIC'
+                    ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/20 shadow-sm'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-2.5">
+                    <div
+                      className={`p-2.5 rounded-xl ${
+                        matchingMode === 'AUTOMATIC'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-slate-900 block">
+                        Automatic Matching
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full inline-block mt-0.5">
+                        Recommended
+                      </span>
+                    </div>
+                  </div>
+                  <div
+                    className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      matchingMode === 'AUTOMATIC'
+                        ? 'border-emerald-600 bg-emerald-600 text-white'
+                        : 'border-slate-300 bg-white'
+                    }`}
+                  >
+                    {matchingMode === 'AUTOMATIC' && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                    )}
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-600 mt-2.5 leading-relaxed">
+                  Our multi-factor algorithm scores proximity (&le;15 km), real-time capacity, urgency, and food safety transit windows to pair with the highest-priority shelter.
+                </p>
+              </div>
+
+              {/* Option B: Direct Shelter Selection */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setMatchingMode('MANUAL')}
+                onKeyDown={(e) => e.key === 'Enter' && setMatchingMode('MANUAL')}
+                className={`p-4 rounded-2xl border text-left cursor-pointer transition-all relative ${
+                  matchingMode === 'MANUAL'
+                    ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/20 shadow-sm'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-2.5">
+                    <div
+                      className={`p-2.5 rounded-xl ${
+                        matchingMode === 'MANUAL'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-slate-900 block">
+                        Direct Shelter Choice
+                      </span>
+                      <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full inline-block mt-0.5">
+                        Donor Selected
+                      </span>
+                    </div>
+                  </div>
+                  <div
+                    className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      matchingMode === 'MANUAL'
+                        ? 'border-emerald-600 bg-emerald-600 text-white'
+                        : 'border-slate-300 bg-white'
+                    }`}
+                  >
+                    {matchingMode === 'MANUAL' && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                    )}
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-600 mt-2.5 leading-relaxed">
+                  Directly choose a specific verified shelter or community kitchen from our registry to receive this rescue donation.
+                </p>
+              </div>
+            </div>
+
+            {/* Direct Shelter Directory (Rendered when MANUAL is selected) */}
+            {matchingMode === 'MANUAL' && (
+              <div className="mt-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800">
+                    Select Destination Shelter / NGO *
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-semibold">
+                    {filteredNgos.length} shelter{filteredNgos.length !== 1 ? 's' : ''} available
+                  </span>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    value={searchNgoQuery}
+                    onChange={(e) => setSearchNgoQuery(e.target.value)}
+                    placeholder="Filter by shelter name, address, or contact..."
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                {loadingNgos ? (
+                  <div className="py-6 text-center text-xs text-slate-400">
+                    <div className="animate-spin w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full mx-auto mb-2" />
+                    Loading verified shelters...
+                  </div>
+                ) : filteredNgos.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-slate-400 bg-white rounded-xl border border-slate-100">
+                    No verified shelters match your search criteria.
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {filteredNgos.map((ngo) => {
+                      const ngoIdentifier = ngo.userId?._id || ngo._id;
+                      const isSelected = targetNgoId === ngoIdentifier;
+                      return (
+                        <div
+                          key={ngo._id}
+                          onClick={() => setTargetNgoId(ngoIdentifier)}
+                          className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                            isSelected
+                              ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500/30 shadow-sm'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0 pr-3">
+                              <div className="flex items-center space-x-2">
+                                <span className="font-bold text-xs text-slate-900 truncate">
+                                  {ngo.organizationName || ngo.userId?.name || 'Verified Shelter'}
+                                </span>
+                                {ngo.calculatedDistance !== null && (
+                                  <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                    {ngo.calculatedDistance} km away
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                                {ngo.address}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                  Capacity: {ngo.availableCapacity ?? ngo.capacity ?? 100} meals free
+                                </span>
+                                {ngo.currentNeeds && (
+                                  <span
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                      ngo.currentNeeds === 'Critical'
+                                        ? 'text-red-700 bg-red-100'
+                                        : ngo.currentNeeds === 'High'
+                                        ? 'text-amber-700 bg-amber-100'
+                                        : 'text-blue-700 bg-blue-100'
+                                    }`}
+                                  >
+                                    Need: {ngo.currentNeeds}
+                                  </span>
+                                )}
+                                {ngo.contactPerson && (
+                                  <span className="text-[10px] text-slate-500">
+                                    Contact: {ngo.contactPerson}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div
+                              className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                                isSelected
+                                  ? 'border-emerald-600 bg-emerald-600 text-white'
+                                  : 'border-slate-300 bg-white'
+                              }`}
+                            >
+                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {targetNgoId && (
+                  <div className="p-2.5 bg-emerald-100/60 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 font-semibold flex items-center space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span>
+                      Target Destination:{' '}
+                      <span className="font-bold underline">
+                        {
+                          ngos.find((n) => (n.userId?._id || n._id) === targetNgoId)?.organizationName ||
+                          ngos.find((n) => (n.userId?._id || n._id) === targetNgoId)?.userId?.name ||
+                          'Target Shelter'
+                        }
+                      </span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <button
             type="submit"
             disabled={submitting || riskAssessment.remainingMinutes <= 0}
             className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-200 flex items-center justify-center space-x-2 transition-all hover:scale-[1.01] disabled:opacity-50"
           >
             {submitting ? (
-              <span>Saving and running matching engine...</span>
+              <span>Saving and processing rescue routing...</span>
             ) : isEditMode ? (
               <>
                 <Save className="w-4 h-4" />
-                <span>Save Changes & Re-evaluate Match</span>
+                <span>Save Changes & Re-evaluate Shelter</span>
+              </>
+            ) : matchingMode === 'MANUAL' ? (
+              <>
+                <Building2 className="w-4 h-4" />
+                <span>Submit & Route Directly to Selected Shelter</span>
+                <ArrowRight className="w-4 h-4" />
               </>
             ) : (
               <>

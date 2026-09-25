@@ -89,6 +89,11 @@ const donationSchema = new mongoose.Schema(
       enum: Object.values(DONATION_STATUS),
       default: DONATION_STATUS.POSTED
     },
+    matchingMode: {
+      type: String,
+      enum: ['AUTOMATIC', 'MANUAL'],
+      default: 'AUTOMATIC'
+    },
     matchedNgoId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

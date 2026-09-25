@@ -2,14 +2,16 @@ const Donation = require('../models/Donation');
 const User = require('../models/User');
 const NGOProfile = require('../models/NGOProfile');
 const DriverProfile = require('../models/DriverProfile');
+const Match = require('../models/Match');
 const { DONATION_STATUS } = require('../config/constants');
 const { findBestMatchForDonation } = require('../services/matchingService');
 const { sendNotification } = require('../services/notificationService');
 const { assertValidTransition, appendStatusHistory } = require('../utils/stateMachine');
 const { getRemainingMinutes } = require('../utils/expiryHelper');
+const { calculateHaversineDistance } = require('../utils/distance');
 
 /**
- * Post a new surplus food donation and automatically run the matching engine
+ * Post a new surplus food donation and run matching engine or direct shelter delivery
  */
 const createDonation = async (req, res, next) => {
   try {
@@ -25,7 +27,9 @@ const createDonation = async (req, res, next) => {
       latitude,
       longitude,
       foodSafetyInfo,
-      photo
+      photo,
+      matchingMode = 'AUTOMATIC',
+      targetNgoId
     } = req.body;
 
     // Validation
@@ -50,7 +54,24 @@ const createDonation = async (req, res, next) => {
 
     const donorId = req.user._id;
 
-    // Create donation with POSTED status
+    // Check if donor directly selected a target NGO
+    let targetNgoUser = null;
+    let targetNgoProfile = null;
+    if (matchingMode === 'MANUAL' && targetNgoId) {
+      targetNgoUser = await User.findById(targetNgoId);
+      if (targetNgoUser) {
+        targetNgoProfile = await NGOProfile.findOne({ userId: targetNgoId });
+      } else {
+        targetNgoProfile = await NGOProfile.findById(targetNgoId).populate('userId');
+        if (targetNgoProfile && targetNgoProfile.userId) {
+          targetNgoUser = targetNgoProfile.userId;
+        }
+      }
+    }
+
+    const isManualMatch = matchingMode === 'MANUAL' && targetNgoUser;
+
+    // Create donation record
     const donation = await Donation.create({
       donorId,
       foodName,
@@ -65,7 +86,9 @@ const createDonation = async (req, res, next) => {
       longitude: Number(longitude) || req.user.location?.longitude || 74.6399,
       foodSafetyInfo: foodSafetyInfo || 'Maintained under hygienic conditions.',
       photo: photo || '',
-      status: DONATION_STATUS.POSTED
+      matchingMode: isManualMatch ? 'MANUAL' : 'AUTOMATIC',
+      matchedNgoId: isManualMatch ? targetNgoUser._id : null,
+      status: isManualMatch ? DONATION_STATUS.MATCHED : DONATION_STATUS.POSTED
     });
 
     // Notify role:ADMIN that new food has been posted
@@ -77,7 +100,88 @@ const createDonation = async (req, res, next) => {
       role: 'ADMIN'
     });
 
-    // Automatic Step 5 & 6: Execute Matching Engine immediately
+    // If Food Donor manually selected the destination NGO
+    if (isManualMatch) {
+      const dist = targetNgoProfile
+        ? calculateHaversineDistance(
+            donation.latitude,
+            donation.longitude,
+            targetNgoProfile.latitude,
+            targetNgoProfile.longitude
+          )
+        : 0;
+
+      const manualMatch = await Match.create({
+        donationId: donation._id,
+        ngoId: targetNgoUser._id,
+        distance: Math.round(dist * 10) / 10,
+        capacityScore: 100,
+        needScore: 100,
+        foodCompatibilityScore: 100,
+        expirySafetyScore: 100,
+        finalScore: 100,
+        status: 'PENDING'
+      });
+
+      donation.statusHistory.push({
+        status: DONATION_STATUS.MATCHED,
+        timestamp: new Date(),
+        note: `Donor directly routed rescue to shelter: ${targetNgoProfile?.organizationName || targetNgoUser.name} (${Math.round(dist * 10) / 10} km away)`,
+        updatedBy: donorId
+      });
+      await donation.save();
+
+      // Send real-time notification to the selected NGO
+      await sendNotification(req.io, {
+        userId: targetNgoUser._id,
+        type: 'MATCH_FOUND',
+        title: 'Direct Surplus Food Donation Received!',
+        message: `${req.user.name} directly sent you ${donation.quantity} ${donation.unit} of ${donation.foodName}.`,
+        relatedDonationId: donation._id,
+        role: 'NGO'
+      });
+
+      // Send real-time notification to the donor
+      await sendNotification(req.io, {
+        userId: donorId,
+        type: 'MATCH_FOUND',
+        title: 'Donation Sent to Selected Shelter!',
+        message: `Your donation "${donation.foodName}" was directly sent to ${targetNgoProfile?.organizationName || targetNgoUser.name}.`,
+        relatedDonationId: donation._id,
+        role: 'DONOR'
+      });
+
+      // Broadcast available pickup request to available drivers
+      await sendNotification(req.io, {
+        type: 'DRIVER_ASSIGNED',
+        title: 'Rescue Dispatch Request Available',
+        message: `New pickup available for ${targetNgoProfile?.organizationName || targetNgoUser.name}: ${donation.foodName} (${donation.quantity} ${donation.unit}).`,
+        relatedDonationId: donation._id,
+        role: 'DRIVER'
+      });
+
+      const updatedDonation = await Donation.findById(donation._id)
+        .populate('donorId', 'name email phone location')
+        .populate('matchedNgoId', 'name email phone location');
+
+      return res.status(201).json({
+        success: true,
+        donation: updatedDonation,
+        matchResult: {
+          success: true,
+          match: manualMatch,
+          selectedNgo: {
+            ngoId: targetNgoUser._id,
+            organizationName: targetNgoProfile?.organizationName || targetNgoUser.name,
+            address: targetNgoProfile?.address || '',
+            distance: Math.round(dist * 10) / 10,
+            scores: { finalScore: 100 }
+          }
+        }
+      });
+    }
+
+    // Default Automatic Flow: Execute Multi-Factor Matching Engine
     const matchResult = await findBestMatchForDonation(donation._id);
 
     let updatedDonation = donation;

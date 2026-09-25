@@ -237,10 +237,40 @@ const updateAvailability = async (req, res, next) => {
   }
 };
 
+/**
+ * Update driver real-time GPS location (PUT /api/drivers/location)
+ */
+const updateDriverLocation = async (req, res, next) => {
+  try {
+    const { latitude, longitude } = req.body;
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ success: false, message: 'Latitude and longitude required.' });
+    }
+
+    const profile = await DriverProfile.findOneAndUpdate(
+      { userId: req.user._id },
+      {
+        currentLocation: {
+          latitude: Number(latitude),
+          longitude: Number(longitude),
+          updatedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    res.json({ success: true, currentLocation: profile?.currentLocation });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getAvailableDrivers,
   getPickupRequests,
   acceptPickupRequest,
   getActiveDelivery,
-  updateAvailability
+  updateAvailability,
+  updateDriverLocation
 };
+

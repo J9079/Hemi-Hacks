@@ -1,5 +1,8 @@
-require('dotenv').config();
 const http = require('http');
+const path = require('path');
+const fs = require('fs');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config(); // also fallback to root .env if present
 const express = require('express');
 const cors = require('cors');
 const { Server } = require('socket.io');
@@ -31,13 +34,13 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'online',
-    service: 'Surplus-to-Shelter Backend API',
+    service: 'Surplus-to-Shelter Unified Production Engine',
     timestamp: new Date().toISOString(),
-    city: 'Ajmer, Rajasthan'
+    environment: process.env.NODE_ENV || 'production'
   });
 });
 
-// Routes will be registered here as each module is implemented
+// API Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/donations', require('./routes/donationRoutes'));
 app.use('/api/matching', require('./routes/matchingRoutes'));
@@ -46,6 +49,20 @@ app.use('/api/drivers', require('./routes/driverRoutes'));
 app.use('/api/deliveries', require('./routes/deliveryRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+
+// Combined All-In-One Static Frontend Serving
+const clientDistPath = path.join(__dirname, '../client/dist');
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+
+  // SPA fallback route for React Router
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
 
 // Centralized Error Handling
 app.use((err, req, res, next) => {
@@ -76,27 +93,16 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 5000;
-const { seedDatabase } = require('./seeds/seedData');
-const User = require('./models/User');
 
 const startServer = async () => {
   await connectDB();
 
-  // Auto-seed if database is empty for zero-friction hackathon demo
-  try {
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
-      console.log('[Bootstrap] Database is empty. Running automatic seed...');
-      await seedDatabase();
-    }
-  } catch (seedErr) {
-    console.warn('[Bootstrap] Auto-seed check error:', seedErr.message);
-  }
-
   server.listen(PORT, () => {
     console.log(`=======================================================`);
-    console.log(` Surplus-to-Shelter Engine active on http://localhost:${PORT}`);
-    console.log(` Socket.IO real-time channel initialized`);
+    console.log(` Surplus-to-Shelter Unified Server active on port ${PORT}`);
+    console.log(` API Endpoint: http://localhost:${PORT}/api`);
+    console.log(` Web Frontend: http://localhost:${PORT}/`);
+    console.log(` Socket.IO real-time channel active`);
     console.log(`=======================================================`);
   });
 };

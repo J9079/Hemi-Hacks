@@ -188,31 +188,89 @@ const getMe = async (req, res, next) => {
 };
 
 /**
- * Quick switch demo login helper
+ * Update user profile & role-specific details (PUT /api/auth/profile)
  */
-const demoLogin = async (req, res, next) => {
+const updateProfile = async (req, res, next) => {
   try {
-    const { role } = req.body;
-    let user = await User.findOne({ role: role.toUpperCase() });
-
+    const user = await User.findById(req.user._id);
     if (!user) {
-      return res.status(404).json({ success: false, message: `No demo account found for role ${role}.` });
+      return res.status(404).json({ success: false, message: 'User not found.' });
     }
+
+    const {
+      name,
+      phone,
+      address,
+      latitude,
+      longitude,
+      organizationName,
+      businessType,
+      capacity,
+      foodPreferences,
+      currentNeeds,
+      vehicleType,
+      vehicleNumber
+    } = req.body;
+
+    if (name) user.name = name;
+    if (phone) user.phone = phone;
+    if (address || latitude || longitude) {
+      user.location = {
+        address: address || user.location?.address || 'Ajmer, Rajasthan',
+        latitude: latitude !== undefined ? Number(latitude) : (user.location?.latitude || 26.4499),
+        longitude: longitude !== undefined ? Number(longitude) : (user.location?.longitude || 74.6399)
+      };
+    }
+
+    await user.save();
 
     let profile = null;
+
     if (user.role === ROLES.DONOR) {
       profile = await DonorProfile.findOne({ userId: user._id });
+      if (profile) {
+        if (organizationName) profile.organizationName = organizationName;
+        if (businessType) profile.businessType = businessType;
+        if (address) profile.address = address;
+        if (latitude !== undefined) profile.latitude = Number(latitude);
+        if (longitude !== undefined) profile.longitude = Number(longitude);
+        await profile.save();
+      }
     } else if (user.role === ROLES.NGO) {
       profile = await NGOProfile.findOne({ userId: user._id });
+      if (profile) {
+        if (organizationName) profile.organizationName = organizationName;
+        if (address) profile.address = address;
+        if (latitude !== undefined) profile.latitude = Number(latitude);
+        if (longitude !== undefined) profile.longitude = Number(longitude);
+        if (capacity !== undefined) {
+          profile.capacity = Number(capacity);
+          // If available capacity was higher, scale it
+          profile.availableCapacity = Math.min(profile.availableCapacity, Number(capacity));
+        }
+        if (foodPreferences) profile.foodPreferences = foodPreferences;
+        if (currentNeeds) profile.currentNeeds = currentNeeds;
+        await profile.save();
+      }
     } else if (user.role === ROLES.DRIVER) {
       profile = await DriverProfile.findOne({ userId: user._id });
+      if (profile) {
+        if (vehicleType) profile.vehicleType = vehicleType;
+        if (vehicleNumber) profile.vehicleNumber = vehicleNumber;
+        if (latitude !== undefined && longitude !== undefined) {
+          profile.currentLocation = {
+            latitude: Number(latitude),
+            longitude: Number(longitude),
+            updatedAt: new Date()
+          };
+        }
+        await profile.save();
+      }
     }
-
-    const token = signToken(user._id);
 
     res.json({
       success: true,
-      token,
+      message: 'Profile updated successfully.',
       user: {
         id: user._id,
         name: user.name,
@@ -228,9 +286,46 @@ const demoLogin = async (req, res, next) => {
   }
 };
 
+/**
+ * Update user password (PUT /api/auth/password)
+ */
+const updatePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Please provide current and new password.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long.' });
+    }
+
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Incorrect current password.' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully.'
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   register,
   login,
   getMe,
-  demoLogin
+  updateProfile,
+  updatePassword
 };

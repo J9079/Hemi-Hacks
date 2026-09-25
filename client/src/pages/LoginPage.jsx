@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { HeartHandshake, Lock, Mail, ArrowRight, Sparkles } from 'lucide-react';
+import { HeartHandshake, Lock, Mail, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export default function LoginPage() {
-  const { login, quickSwitchRole } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -21,7 +22,7 @@ export default function LoginPage() {
       // Navigate to role specific dashboard
       navigateRole(data.user.role);
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid credentials.');
+      setError(err.response?.data?.message || 'Invalid email or password.');
     } finally {
       setSubmitting(false);
     }
@@ -46,14 +47,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleQuickLogin = async (roleName) => {
-    setError('');
-    const user = await quickSwitchRole(roleName);
-    if (user) {
-      navigateRole(user.role);
-    }
-  };
-
   return (
     <div className="min-h-[80vh] flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8 max-w-md w-full">
@@ -61,57 +54,16 @@ export default function LoginPage() {
           <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mx-auto mb-3 shadow-md shadow-emerald-200">
             <HeartHandshake className="w-7 h-7" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">Sign in to Surplus-to-Shelter</h2>
-          <p className="text-xs text-slate-500 mt-1">Real-time surplus food coordination & rescue</p>
+          <h2 className="text-2xl font-bold text-slate-900">Sign In</h2>
+          <p className="text-xs text-slate-500 mt-1">Access your Surplus-to-Shelter account</p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
-            {error}
+          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{error}</span>
           </div>
         )}
-
-        {/* 1-Click Quick Demo Switcher Buttons */}
-        <div className="mb-6 p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
-          <div className="flex items-center space-x-1.5 mb-2.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span className="text-xs font-bold text-slate-800">Judge / Demo Quick Login</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('DONOR')}
-              className="p-2 rounded-xl bg-white border border-slate-200 hover:border-orange-400 text-slate-700 font-semibold hover:bg-orange-50 text-left transition-colors"
-            >
-              <span className="block font-bold text-orange-600">🍲 Donor</span>
-              <span className="text-[10px] text-slate-400">Royal Spice</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('NGO')}
-              className="p-2 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 text-slate-700 font-semibold hover:bg-emerald-50 text-left transition-colors"
-            >
-              <span className="block font-bold text-emerald-600">🏠 NGO</span>
-              <span className="text-[10px] text-slate-400">Helping Hands</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('DRIVER')}
-              className="p-2 rounded-xl bg-white border border-slate-200 hover:border-blue-400 text-slate-700 font-semibold hover:bg-blue-50 text-left transition-colors"
-            >
-              <span className="block font-bold text-blue-600">🛵 Driver</span>
-              <span className="text-[10px] text-slate-400">Vikram Singh</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('ADMIN')}
-              className="p-2 rounded-xl bg-white border border-slate-200 hover:border-purple-400 text-slate-700 font-semibold hover:bg-purple-50 text-left transition-colors"
-            >
-              <span className="block font-bold text-purple-600">📊 Admin</span>
-              <span className="text-[10px] text-slate-400">Ajmer Control</span>
-            </button>
-          </div>
-        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -124,7 +76,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@organization.com"
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full pl-9 pr-3 py-2.5 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
           </div>
@@ -139,9 +91,21 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full pl-9 pr-3 py-2.5 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-slate-600">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <span>Remember me</span>
+            </label>
           </div>
 
           <button
@@ -160,10 +124,10 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 text-center text-xs text-slate-500">
-          Don't have an account?{' '}
+        <div className="mt-6 text-center text-xs text-slate-500 pt-4 border-t border-slate-100">
+          New to Surplus-to-Shelter?{' '}
           <Link to="/register" className="font-bold text-emerald-600 hover:underline">
-            Register here
+            Create an account
           </Link>
         </div>
       </div>

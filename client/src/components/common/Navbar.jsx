@@ -8,18 +8,18 @@ import {
   Bell,
   User,
   LogOut,
-  Sparkles,
   ChevronDown,
-  Compass,
-  CheckCircle,
-  Truck,
+  Settings,
+  PlusCircle,
   Building2,
-  ShieldAlert,
-  PlusCircle
+  Truck,
+  ShieldCheck,
+  CheckCircle2,
+  Sliders
 } from 'lucide-react';
 
 export default function Navbar() {
-  const { user, role, logout, quickSwitchRole, isAuthenticated } = useAuth();
+  const { user, role, logout, isAuthenticated } = useAuth();
   const { liveEvent } = useSocket();
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,9 +27,9 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showRoleMenu, setShowRoleMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
-  // Fetch notifications
+  // Fetch real notifications
   const loadNotifications = async () => {
     if (!isAuthenticated) return;
     try {
@@ -57,10 +57,10 @@ export default function Navbar() {
     }
   };
 
-  const handleRoleSwitch = async (targetRole, targetPath) => {
-    setShowRoleMenu(false);
-    await quickSwitchRole(targetRole);
-    navigate(targetPath);
+  const handleLogout = () => {
+    setShowUserMenu(false);
+    logout();
+    navigate('/login');
   };
 
   const getRoleBadgeColor = () => {
@@ -93,7 +93,7 @@ export default function Navbar() {
                   Surplus<span className="text-emerald-600">ToShelter</span>
                 </span>
                 <span className="text-[10px] font-medium text-slate-400 block tracking-wider uppercase mt-0.5">
-                  Real-Time Rescue Routing
+                  Real-Time Food Rescue Routing
                 </span>
               </div>
             </Link>
@@ -114,7 +114,7 @@ export default function Navbar() {
                 location.pathname === '/' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Home
+              Overview
             </Link>
 
             {role === 'DONOR' && (
@@ -125,7 +125,7 @@ export default function Navbar() {
                     location.pathname === '/donor' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Dashboard
+                  My Donations
                 </Link>
                 <Link
                   to="/donor/post"
@@ -138,128 +138,48 @@ export default function Navbar() {
             )}
 
             {role === 'NGO' && (
-              <>
-                <Link
-                  to="/ngo"
-                  className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                    location.pathname === '/ngo' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Shelter Dashboard
-                </Link>
-              </>
+              <Link
+                to="/ngo"
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  location.pathname === '/ngo' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Shelter Dashboard
+              </Link>
             )}
 
             {role === 'DRIVER' && (
-              <>
-                <Link
-                  to="/driver"
-                  className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                    location.pathname === '/driver' ? 'text-blue-700 bg-blue-50' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Rescue Dispatches
-                </Link>
-              </>
+              <Link
+                to="/driver"
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  location.pathname === '/driver' ? 'text-blue-700 bg-blue-50' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Rescue Dispatches
+              </Link>
             )}
 
             {role === 'ADMIN' && (
-              <>
-                <Link
-                  to="/admin"
-                  className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                    location.pathname === '/admin' ? 'text-purple-700 bg-purple-50' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Admin Impact Center
-                </Link>
-              </>
+              <Link
+                to="/admin"
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  location.pathname === '/admin' ? 'text-purple-700 bg-purple-50' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Admin Command Center
+              </Link>
             )}
           </nav>
 
-          {/* Right Actions: Persona Switcher, Notifications, Auth */}
+          {/* Right Actions: Notifications & Production User Account Menu */}
           <div className="flex items-center space-x-2 sm:space-x-3">
-            {/* Quick Persona Switcher for Hackathon Judges */}
-            <div className="relative">
-              <button
-                onClick={() => setShowRoleMenu(!showRoleMenu)}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500/10 to-emerald-500/10 hover:from-amber-500/20 hover:to-emerald-500/20 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm"
-                title="Switch role instantly to test all workflows"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span className="hidden sm:inline">Demo Switcher</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-              </button>
-
-              {showRoleMenu && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50 animate-scale-up">
-                  <div className="px-4 py-2 border-b border-slate-100">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Judge Persona Quick-Switch
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => handleRoleSwitch('DONOR', '/donor')}
-                    className="w-full px-4 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 flex items-center space-x-3 text-slate-700"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center font-bold">
-                      🍲
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-800">Food Donor</div>
-                      <div className="text-[11px] text-slate-400">Chef Rajesh (Royal Spice)</div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => handleRoleSwitch('NGO', '/ngo')}
-                    className="w-full px-4 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 flex items-center space-x-3 text-slate-700"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                      🏠
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-800">NGO / Shelter</div>
-                      <div className="text-[11px] text-slate-400">Helping Hands Shelter</div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => handleRoleSwitch('DRIVER', '/driver')}
-                    className="w-full px-4 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 flex items-center space-x-3 text-slate-700"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-                      🛵
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-800">Volunteer Driver</div>
-                      <div className="text-[11px] text-slate-400">Vikram Singh (RJ-01)</div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => handleRoleSwitch('ADMIN', '/admin')}
-                    className="w-full px-4 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 flex items-center space-x-3 text-slate-700"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
-                      📊
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-800">System Admin</div>
-                      <div className="text-[11px] text-slate-400">Impact & Monitoring Hub</div>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </div>
-
             {/* Notification Bell */}
             {isAuthenticated && (
               <div className="relative">
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
                   className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl relative transition-colors"
+                  title="Notifications"
                 >
                   <Bell className="w-5 h-5" />
                   {unreadCount > 0 && (
@@ -311,24 +231,101 @@ export default function Navbar() {
               </div>
             )}
 
-            {/* User Profile or Login CTA */}
+            {/* User Profile Dropdown or Sign In CTA */}
             {isAuthenticated ? (
-              <div className="flex items-center space-x-2">
-                <div className="hidden sm:block text-right">
-                  <span className="block text-xs font-bold text-slate-800 leading-none">
-                    {user?.name || 'User'}
-                  </span>
-                  <span className="text-[10px] text-slate-400 leading-none mt-0.5">
-                    {user?.profile?.organizationName || user?.role}
-                  </span>
-                </div>
+              <div className="relative">
                 <button
-                  onClick={logout}
-                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
-                  title="Sign out"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center space-x-2 p-1.5 rounded-2xl hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200"
                 >
-                  <LogOut className="w-5 h-5" />
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                  <div className="hidden sm:block text-left mr-1">
+                    <span className="block text-xs font-bold text-slate-800 leading-tight">
+                      {user?.name}
+                    </span>
+                    <span className="text-[10px] text-slate-400 leading-tight block">
+                      {user?.profile?.organizationName || user?.role}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                 </button>
+
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50">
+                    <div className="px-4 py-2.5 border-b border-slate-100">
+                      <div className="font-bold text-xs text-slate-900">{user?.name}</div>
+                      <div className="text-[11px] text-slate-500 truncate">{user?.email}</div>
+                      <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${getRoleBadgeColor()}`}>
+                        {role} Account
+                      </span>
+                    </div>
+
+                    <Link
+                      to="/profile"
+                      onClick={() => setShowUserMenu(false)}
+                      className="w-full px-4 py-2 text-left text-xs font-semibold hover:bg-slate-50 flex items-center space-x-2 text-slate-700"
+                    >
+                      <Settings className="w-4 h-4 text-slate-400" />
+                      <span>Profile & Settings</span>
+                    </Link>
+
+                    {role === 'DONOR' && (
+                      <Link
+                        to="/donor"
+                        onClick={() => setShowUserMenu(false)}
+                        className="w-full px-4 py-2 text-left text-xs font-semibold hover:bg-slate-50 flex items-center space-x-2 text-slate-700"
+                      >
+                        <User className="w-4 h-4 text-slate-400" />
+                        <span>Donor Dashboard</span>
+                      </Link>
+                    )}
+
+                    {role === 'NGO' && (
+                      <Link
+                        to="/ngo"
+                        onClick={() => setShowUserMenu(false)}
+                        className="w-full px-4 py-2 text-left text-xs font-semibold hover:bg-slate-50 flex items-center space-x-2 text-slate-700"
+                      >
+                        <Building2 className="w-4 h-4 text-slate-400" />
+                        <span>Shelter Dashboard</span>
+                      </Link>
+                    )}
+
+                    {role === 'DRIVER' && (
+                      <Link
+                        to="/driver"
+                        onClick={() => setShowUserMenu(false)}
+                        className="w-full px-4 py-2 text-left text-xs font-semibold hover:bg-slate-50 flex items-center space-x-2 text-slate-700"
+                      >
+                        <Truck className="w-4 h-4 text-slate-400" />
+                        <span>Driver Dispatches</span>
+                      </Link>
+                    )}
+
+                    {role === 'ADMIN' && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setShowUserMenu(false)}
+                        className="w-full px-4 py-2 text-left text-xs font-semibold hover:bg-slate-50 flex items-center space-x-2 text-slate-700"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-slate-400" />
+                        <span>Admin Impact Hub</span>
+                      </Link>
+                    )}
+
+                    <div className="border-t border-slate-100 my-1" />
+
+                    <button
+                      onClick={handleLogout}
+                      className="w-full px-4 py-2 text-left text-xs font-semibold hover:bg-red-50 flex items-center space-x-2 text-red-600"
+                    >
+                      <LogOut className="w-4 h-4 text-red-500" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center space-x-2">
@@ -340,9 +337,9 @@ export default function Navbar() {
                 </Link>
                 <Link
                   to="/register"
-                  className="px-3.5 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm shadow-emerald-200"
+                  className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm shadow-emerald-200"
                 >
-                  Register
+                  Join the Mission
                 </Link>
               </div>
             )}

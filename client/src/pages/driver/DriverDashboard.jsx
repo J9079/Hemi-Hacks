@@ -61,7 +61,7 @@ export default function DriverDashboard() {
           setGpsActive(true);
         },
         (err) => {
-          console.log('Using simulated city GPS coordinates for Ajmer demo:', err.message);
+          console.log('Using default GPS coordinates:', err.message);
           setGpsActive(false);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }

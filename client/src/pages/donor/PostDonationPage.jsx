@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -7,18 +7,22 @@ import {
   Clock,
   MapPin,
   ShieldCheck,
-  Sparkles,
   ArrowRight,
   Info,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Navigation,
+  ChevronLeft,
+  Save
 } from 'lucide-react';
 
 export default function PostDonationPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { id } = useParams(); // If present, edit mode
 
-  // Initialize expiry time to 2 hours from now by default
+  const isEditMode = !!id;
+
   const getInitialExpiry = (hours) => {
     const d = new Date(Date.now() + hours * 3600 * 1000);
     return d.toISOString().slice(0, 16);
@@ -27,25 +31,61 @@ export default function PostDonationPage() {
   const [formData, setFormData] = useState({
     foodName: '',
     category: 'Cooked Food',
-    quantity: 30,
+    quantity: 10,
     unit: 'kg',
     description: '',
     preparedAt: new Date().toISOString().slice(0, 16),
-    usableUntil: getInitialExpiry(2.5),
-    pickupAddress: user?.location?.address || 'Civil Lines, Near Circuit House, Ajmer',
-    latitude: user?.location?.latitude || 26.4700,
-    longitude: user?.location?.longitude || 74.6400,
-    foodSafetyInfo: 'Maintained at >65°C in thermal carriers. FSSAI hygiene compliant.',
+    usableUntil: getInitialExpiry(3),
+    pickupAddress: user?.location?.address || 'Ajmer, Rajasthan',
+    latitude: user?.location?.latitude || 26.4499,
+    longitude: user?.location?.longitude || 74.6399,
+    foodSafetyInfo: 'Stored under hygienic temperature compliant conditions.',
     photo: ''
   });
 
   const [riskAssessment, setRiskAssessment] = useState({
-    remainingMinutes: 150,
+    remainingMinutes: 180,
     status: 'SAFE',
-    displayText: '2h 30m'
+    displayText: '3h 0m'
   });
+
+  const [loading, setLoading] = useState(isEditMode);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [detectingGps, setDetectingGps] = useState(false);
+
+  // Fetch existing data if in Edit Mode
+  useEffect(() => {
+    if (isEditMode) {
+      const fetchExisting = async () => {
+        try {
+          const res = await api.get(`/donations/${id}`);
+          if (res.data.success && res.data.donation) {
+            const d = res.data.donation;
+            setFormData({
+              foodName: d.foodName || '',
+              category: d.category || 'Cooked Food',
+              quantity: d.quantity || 10,
+              unit: d.unit || 'kg',
+              description: d.description || '',
+              preparedAt: d.preparedAt ? new Date(d.preparedAt).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
+              usableUntil: d.usableUntil ? new Date(d.usableUntil).toISOString().slice(0, 16) : getInitialExpiry(3),
+              pickupAddress: d.pickupAddress || '',
+              latitude: d.latitude || 26.4499,
+              longitude: d.longitude || 74.6399,
+              foodSafetyInfo: d.foodSafetyInfo || '',
+              photo: d.photo || ''
+            });
+          }
+        } catch (err) {
+          setError('Failed to load donation details for editing.');
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchExisting();
+    }
+  }, [id, isEditMode]);
 
   // Update live expiry indicator whenever usableUntil changes
   useEffect(() => {
@@ -69,22 +109,27 @@ export default function PostDonationPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // One-click autofill for the official AmiHacks Hackathon demo scenario (Section 26)
-  const autofillDemoScenario = () => {
-    setFormData({
-      foodName: 'Cooked Rice + Dal Tadka',
-      category: 'Cooked Food',
-      quantity: 30,
-      unit: 'kg',
-      description: 'Hot steamed basmati rice with nutritious tempered yellow dal. Freshly prepared and stored in thermal canisters.',
-      preparedAt: new Date().toISOString().slice(0, 16),
-      usableUntil: getInitialExpiry(2), // 2 hours
-      pickupAddress: 'Civil Lines, Royal Spice Banquet, Ajmer',
-      latitude: 26.4700,
-      longitude: 74.6400,
-      foodSafetyInfo: 'Cooked at 1 PM, kept above 65°C in food-grade insulated catering containers.',
-      photo: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=500&q=80'
-    });
+  const detectLocation = () => {
+    if (!('geolocation' in navigator)) {
+      setError('Geolocation is not supported by your browser.');
+      return;
+    }
+    setDetectingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setFormData((prev) => ({
+          ...prev,
+          latitude: Number(pos.coords.latitude.toFixed(4)),
+          longitude: Number(pos.coords.longitude.toFixed(4))
+        }));
+        setDetectingGps(false);
+      },
+      (err) => {
+        setDetectingGps(false);
+        setError('Unable to fetch GPS position. Check permissions.');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -98,52 +143,59 @@ export default function PostDonationPage() {
 
     setSubmitting(true);
     try {
-      const res = await api.post('/donations', formData);
-      if (res.data.success) {
-        // Redirect to detail page to view the live match!
-        navigate(`/donor/donation/${res.data.donation._id}`);
+      if (isEditMode) {
+        const res = await api.put(`/donations/${id}`, formData);
+        if (res.data.success) {
+          navigate(`/donor/donation/${id}`);
+        }
+      } else {
+        const res = await api.post('/donations', formData);
+        if (res.data.success) {
+          navigate(`/donor/donation/${res.data.donation._id}`);
+        }
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to post donation.');
+      setError(err.response?.data?.message || 'Failed to save donation.');
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto p-12 text-center text-slate-400 text-xs">
+        <div className="animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-3" />
+        Loading donation...
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      {/* Autofill Demo Banner */}
-      <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-800">Hackathon Presentation Quick Setup</h4>
-            <p className="text-[11px] text-slate-600">
-              Load Section 26 Demo Scenario: 30kg Cooked Rice + Dal (2hr expiry window).
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={autofillDemoScenario}
-          className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all hover:scale-105 whitespace-nowrap"
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <div className="flex items-center justify-between">
+        <Link
+          to="/donor"
+          className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-600 hover:text-slate-900"
         >
-          Autofill Demo Food
-        </button>
+          <ChevronLeft className="w-4 h-4" />
+          <span>Back to Donations</span>
+        </Link>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8">
         <div className="border-b border-slate-100 pb-5 mb-6">
-          <h2 className="text-2xl font-black text-slate-900">Post Surplus Food</h2>
+          <h2 className="text-2xl font-black text-slate-900">
+            {isEditMode ? 'Edit Surplus Food Listing' : 'Post Surplus Food'}
+          </h2>
           <p className="text-xs text-slate-500 mt-1">
-            The real-time matching engine will score nearby shelters the moment you submit.
+            {isEditMode
+              ? 'Update food details, quantity, or pickup window for matching shelters.'
+              : 'Our matching engine will calculate the best-fit shelter based on capacity, distance, and dietary compatibility.'}
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center space-x-2">
+          <div className="mb-6 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center space-x-2">
             <AlertTriangle className="w-4 h-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -162,7 +214,7 @@ export default function PostDonationPage() {
                 required
                 value={formData.foodName}
                 onChange={handleChange}
-                placeholder="e.g. Cooked Rice + Dal Tadka"
+                placeholder="e.g. Freshly Cooked Rice and Lentil Curry"
                 className="w-full px-3.5 py-2.5 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
@@ -223,16 +275,16 @@ export default function PostDonationPage() {
                 rows={2}
                 value={formData.description}
                 onChange={handleChange}
-                placeholder="Details on food preparation, portions, and packaging..."
+                placeholder="Details on food preparation, portions, dietary ingredients, packaging..."
                 className="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none"
               />
             </div>
           </div>
 
-          {/* Section 2: Expiry & Food Safety Logic */}
+          {/* Section 2: Expiry & Safety Window */}
           <div className="space-y-4 pt-4 border-t border-slate-100">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              2. Usable Window & Food Safety
+              2. Usable Expiry Window & Food Safety
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -261,7 +313,7 @@ export default function PostDonationPage() {
               </div>
             </div>
 
-            {/* Live Expiry-Risk Simulator Banner */}
+            {/* Live Expiry-Risk Assessment Card */}
             <div className={`p-4 rounded-2xl border transition-all ${
               riskAssessment.status === 'SAFE'
                 ? 'bg-emerald-50 border-emerald-200'
@@ -275,7 +327,7 @@ export default function PostDonationPage() {
                     riskAssessment.status === 'SAFE' ? 'text-emerald-600' : riskAssessment.status === 'WARNING' ? 'text-amber-600' : 'text-red-600'
                   }`} />
                   <span className="text-xs font-bold text-slate-800">
-                    Food usable for: <span className="font-extrabold">{riskAssessment.displayText}</span>
+                    Estimated usable food window: <span className="font-extrabold">{riskAssessment.displayText}</span>
                   </span>
                 </div>
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
@@ -291,7 +343,7 @@ export default function PostDonationPage() {
               <p className="text-[11px] text-slate-600 mt-1">
                 {riskAssessment.status === 'SAFE' && 'Sufficient window for multi-factor shelter matching and driver dispatch.'}
                 {riskAssessment.status === 'WARNING' && 'Expedited volunteer assignment recommended.'}
-                {riskAssessment.status === 'CRITICAL' && 'Urgent: Driver must be within 10-15 minutes of donor location.'}
+                {riskAssessment.status === 'CRITICAL' && 'Urgent: Driver must be nearby to pick up in time.'}
                 {riskAssessment.status === 'EXPIRED' && 'Food cannot be rescued past usable life.'}
               </p>
             </div>
@@ -303,7 +355,7 @@ export default function PostDonationPage() {
                 name="foodSafetyInfo"
                 value={formData.foodSafetyInfo}
                 onChange={handleChange}
-                placeholder="e.g. Temperature compliant, kept sealed in thermal food grade containers"
+                placeholder="e.g. Maintained hot in insulated carriers / refrigerated at 4°C"
                 className="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none"
               />
             </div>
@@ -311,7 +363,18 @@ export default function PostDonationPage() {
 
           {/* Section 3: Pickup Location */}
           <div className="space-y-4 pt-4 border-t border-slate-100">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">3. Pickup Location (Ajmer)</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">3. Pickup Location</h3>
+              <button
+                type="button"
+                onClick={detectLocation}
+                disabled={detectingGps}
+                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center space-x-1"
+              >
+                <Navigation className={`w-3.5 h-3.5 ${detectingGps ? 'animate-spin' : ''}`} />
+                <span>{detectingGps ? 'Detecting...' : 'Auto-Detect Current GPS'}</span>
+              </button>
+            </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Pickup Address *</label>
@@ -323,8 +386,8 @@ export default function PostDonationPage() {
                   required
                   value={formData.pickupAddress}
                   onChange={handleChange}
-                  placeholder="Street, Area, Landmark, Ajmer"
-                  className="w-full pl-9 pr-3 py-2.5 text-xs border border-slate-300 rounded-xl focus:outline-none"
+                  placeholder="Street, Area, Landmark"
+                  className="w-full pl-9 pr-3.5 py-2.5 text-xs border border-slate-300 rounded-xl focus:outline-none"
                 />
               </div>
             </div>
@@ -361,7 +424,12 @@ export default function PostDonationPage() {
             className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-200 flex items-center justify-center space-x-2 transition-all hover:scale-[1.01] disabled:opacity-50"
           >
             {submitting ? (
-              <span>Matching with nearby shelters...</span>
+              <span>Saving and running matching engine...</span>
+            ) : isEditMode ? (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Save Changes & Re-evaluate Match</span>
+              </>
             ) : (
               <>
                 <UtensilsCrossed className="w-4 h-4" />

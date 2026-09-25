@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { HeartHandshake, ArrowRight, UserCheck, Building, Truck, Shield } from 'lucide-react';
+import { HeartHandshake, ArrowRight, UserCheck, Building, Truck, Shield, Navigation, AlertCircle } from 'lucide-react';
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const roleParam = searchParams.get('role');
 
-  const [role, setRole] = useState('DONOR');
+  const [role, setRole] = useState(
+    roleParam && ['DONOR', 'NGO', 'DRIVER'].includes(roleParam.toUpperCase())
+      ? roleParam.toUpperCase()
+      : 'DONOR'
+  );
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -15,18 +21,42 @@ export default function RegisterPage() {
     phone: '',
     organizationName: '',
     businessType: 'Restaurant',
-    address: 'Civil Lines, Ajmer',
-    latitude: 26.4700,
-    longitude: 74.6400,
+    address: 'Ajmer, Rajasthan',
+    latitude: 26.4499,
+    longitude: 74.6399,
     capacity: 100,
     vehicleType: 'Two-Wheeler (Bike/Scooter)',
-    vehicleNumber: 'RJ-01-AB-1234'
+    vehicleNumber: ''
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [detectingGps, setDetectingGps] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const detectLocation = () => {
+    if (!('geolocation' in navigator)) {
+      setError('Geolocation is not supported by your browser.');
+      return;
+    }
+    setDetectingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setFormData((prev) => ({
+          ...prev,
+          latitude: Number(pos.coords.latitude.toFixed(4)),
+          longitude: Number(pos.coords.longitude.toFixed(4))
+        }));
+        setDetectingGps(false);
+      },
+      (err) => {
+        setDetectingGps(false);
+        setError('Unable to fetch GPS position. Please check location permissions.');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -62,13 +92,14 @@ export default function RegisterPage() {
           <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mx-auto mb-3 shadow-md shadow-emerald-200">
             <HeartHandshake className="w-7 h-7" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">Create Rescue Account</h2>
-          <p className="text-xs text-slate-500 mt-1">Join the Ajmer Real-Time Food Rescue Network</p>
+          <h2 className="text-2xl font-bold text-slate-900">Create an Account</h2>
+          <p className="text-xs text-slate-500 mt-1">Join the Real-Time Food Rescue Network</p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
-            {error}
+          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
@@ -121,7 +152,7 @@ export default function RegisterPage() {
                 required
                 value={formData.name}
                 onChange={handleChange}
-                placeholder="e.g. Chef Rajesh"
+                placeholder="e.g. John Doe"
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
@@ -134,7 +165,7 @@ export default function RegisterPage() {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                placeholder="rajesh@restaurant.com"
+                placeholder="contact@organization.com"
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
@@ -163,7 +194,7 @@ export default function RegisterPage() {
                 required
                 value={formData.phone}
                 onChange={handleChange}
-                placeholder="+91 98290 12345"
+                placeholder="+91 98765 43210"
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
@@ -181,7 +212,7 @@ export default function RegisterPage() {
                     required
                     value={formData.organizationName}
                     onChange={handleChange}
-                    placeholder="e.g. Royal Spice Banquet"
+                    placeholder="e.g. City Kitchen"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white focus:outline-none"
                   />
                 </div>
@@ -202,18 +233,6 @@ export default function RegisterPage() {
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Pickup Address</label>
-                <input
-                  type="text"
-                  name="address"
-                  required
-                  value={formData.address}
-                  onChange={handleChange}
-                  placeholder="e.g. Civil Lines, Ajmer"
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white focus:outline-none"
-                />
-              </div>
             </div>
           )}
 
@@ -221,14 +240,14 @@ export default function RegisterPage() {
             <div className="p-3 bg-emerald-50/50 rounded-2xl border border-emerald-100 space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Shelter / Trust Name</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Shelter / Organization Name</label>
                   <input
                     type="text"
                     name="organizationName"
                     required
                     value={formData.organizationName}
                     onChange={handleChange}
-                    placeholder="e.g. Helping Hands Shelter"
+                    placeholder="e.g. Hope Community Shelter"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white focus:outline-none"
                   />
                 </div>
@@ -244,18 +263,6 @@ export default function RegisterPage() {
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white focus:outline-none"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Shelter Address</label>
-                <input
-                  type="text"
-                  name="address"
-                  required
-                  value={formData.address}
-                  onChange={handleChange}
-                  placeholder="e.g. Station Road, Ajmer"
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white focus:outline-none"
-                />
               </div>
             </div>
           )}
@@ -278,20 +285,69 @@ export default function RegisterPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Vehicle Number</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Vehicle Registration Number</label>
                   <input
                     type="text"
                     name="vehicleNumber"
                     required
                     value={formData.vehicleNumber}
                     onChange={handleChange}
-                    placeholder="e.g. RJ-01-EA-4521"
+                    placeholder="e.g. RJ-01-AB-1234"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white focus:outline-none"
                   />
                 </div>
               </div>
             </div>
           )}
+
+          {/* Location Details with Auto-Detect */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700">Location & Coordinates</label>
+              <button
+                type="button"
+                onClick={detectLocation}
+                disabled={detectingGps}
+                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center space-x-1"
+              >
+                <Navigation className={`w-3.5 h-3.5 ${detectingGps ? 'animate-spin' : ''}`} />
+                <span>{detectingGps ? 'Detecting...' : 'Auto-Detect GPS'}</span>
+              </button>
+            </div>
+
+            <div>
+              <input
+                type="text"
+                name="address"
+                required
+                value={formData.address}
+                onChange={handleChange}
+                placeholder="Street address, city"
+                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="number"
+                step="any"
+                name="latitude"
+                value={formData.latitude}
+                onChange={handleChange}
+                className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:outline-none"
+                placeholder="Latitude"
+              />
+              <input
+                type="number"
+                step="any"
+                name="longitude"
+                value={formData.longitude}
+                onChange={handleChange}
+                className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:outline-none"
+                placeholder="Longitude"
+              />
+            </div>
+          </div>
 
           <button
             type="submit"
@@ -309,8 +365,8 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        <div className="mt-6 text-center text-xs text-slate-500">
-          Already registered?{' '}
+        <div className="mt-6 text-center text-xs text-slate-500 pt-4 border-t border-slate-100">
+          Already have an account?{' '}
           <Link to="/login" className="font-bold text-emerald-600 hover:underline">
             Sign In here
           </Link>

@@ -22,8 +22,8 @@ export default function NgoDashboard() {
   const { liveEvent } = useSocket();
 
   const [stats, setStats] = useState({
-    totalCapacity: 150,
-    availableCapacity: 110,
+    totalCapacity: 0,
+    availableCapacity: 0,
     incomingMealsToday: 0,
     totalReceivedMeals: 0
   });
@@ -34,8 +34,8 @@ export default function NgoDashboard() {
 
   // Capacity adjustment modal
   const [showCapModal, setShowCapModal] = useState(false);
-  const [newCap, setNewCap] = useState(150);
-  const [newAvail, setNewAvail] = useState(110);
+  const [newCap, setNewCap] = useState(0);
+  const [newAvail, setNewAvail] = useState(0);
   const [updatingCap, setUpdatingCap] = useState(false);
 
   const fetchNgoData = async () => {

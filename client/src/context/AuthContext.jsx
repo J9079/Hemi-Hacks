@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
           setUser(res.data.user);
         }
       } catch (err) {
-        console.warn('Failed to restore user session:', err.message);
+        console.warn('Session expired or invalid:', err.message);
         localStorage.removeItem('sts_token');
         setToken(null);
         setUser(null);
@@ -59,22 +59,17 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  // Quick switch between demo personas for seamless hackathon judges evaluation
-  const quickSwitchRole = async (targetRole) => {
-    setLoading(true);
-    try {
-      const res = await api.post('/auth/demo-login', { role: targetRole });
-      if (res.data.success) {
-        localStorage.setItem('sts_token', res.data.token);
-        setToken(res.data.token);
-        setUser(res.data.user);
-        return res.data.user;
-      }
-    } catch (err) {
-      console.error('Quick switch failed:', err);
-    } finally {
-      setLoading(false);
+  const updateProfile = async (profileData) => {
+    const res = await api.put('/auth/profile', profileData);
+    if (res.data.success) {
+      setUser(res.data.user);
+      return res.data;
     }
+  };
+
+  const updatePassword = async (currentPassword, newPassword) => {
+    const res = await api.put('/auth/password', { currentPassword, newPassword });
+    return res.data;
   };
 
   return (
@@ -87,7 +82,8 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
-        quickSwitchRole,
+        updateProfile,
+        updatePassword,
         isAuthenticated: !!user
       }}
     >

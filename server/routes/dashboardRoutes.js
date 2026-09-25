@@ -4,10 +4,14 @@ const {
   getAdminDashboard,
   getDonorDashboard,
   getNgoDashboard,
-  getDriverDashboard
+  getDriverDashboard,
+  getPublicStats
 } = require('../controllers/dashboardController');
 const { protect, authorize } = require('../middleware/auth');
 const { ROLES } = require('../config/constants');
+
+// Public impact stats for landing page
+router.get('/public-stats', getPublicStats);
 
 router.get('/admin', protect, authorize(ROLES.ADMIN), getAdminDashboard);
 router.get('/donor', protect, authorize(ROLES.DONOR, ROLES.ADMIN), getDonorDashboard);

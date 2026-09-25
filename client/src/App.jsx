@@ -24,6 +24,9 @@ import DriverActiveDeliveryPage from './pages/driver/DriverActiveDeliveryPage';
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 
+// Profile Page
+import ProfilePage from './pages/ProfilePage';
+
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading, isAuthenticated } = useAuth();
@@ -91,6 +94,14 @@ export default function App() {
                   }
                 />
                 <Route
+                  path="/donor/edit/:id"
+                  element={
+                    <ProtectedRoute allowedRoles={['DONOR', 'ADMIN']}>
+                      <PostDonationPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/donor/donation/:id"
                   element={
                     <ProtectedRoute allowedRoles={['DONOR', 'ADMIN', 'NGO', 'DRIVER']}>
@@ -137,6 +148,16 @@ export default function App() {
                   }
                 />
 
+                {/* User Profile & Account Settings */}
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <ProfilePage />
+                    </ProtectedRoute>
+                  }
+                />
+
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
@@ -146,10 +167,10 @@ export default function App() {
             <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
               <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
                 <span>
-                  Surplus-to-Shelter &bull; Real-Time Food Rescue Routing &bull; AmiHacks 2024
+                  Surplus-to-Shelter &bull; Real-Time Food Rescue &amp; Redistribution Platform
                 </span>
                 <span className="text-slate-400">
-                  Ajmer, Rajasthan Logistics Grid &bull; OpenStreetMap Routing
+                  Real GPS Routing &bull; OpenStreetMap Leaflet Engine &bull; Zero Waste Initiative
                 </span>
               </div>
             </footer>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
 import StatusTimeline from '../../components/common/StatusTimeline';
@@ -16,17 +16,23 @@ import {
   Award,
   ChevronLeft,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Edit2,
+  XCircle,
+  Trash2
 } from 'lucide-react';
 
 export default function DonationDetailPage() {
   const { id } = useParams();
   const { liveEvent } = useSocket();
+  const navigate = useNavigate();
 
   const [donation, setDonation] = useState(null);
   const [profiles, setProfiles] = useState({});
   const [loading, setLoading] = useState(true);
   const [showMatchModal, setShowMatchModal] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   const fetchDetail = async () => {
     try {
@@ -46,6 +52,23 @@ export default function DonationDetailPage() {
     fetchDetail();
   }, [id, liveEvent]);
 
+  const handleCancelDonation = async () => {
+    setCancelling(true);
+    try {
+      const res = await api.put(`/donations/${id}/cancel`, {
+        reason: 'Cancelled by donor from details view.'
+      });
+      if (res.data.success) {
+        setShowCancelModal(false);
+        fetchDetail();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to cancel donation.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto p-12 text-center text-slate-400 text-xs">
@@ -57,11 +80,13 @@ export default function DonationDetailPage() {
 
   if (!donation) {
     return (
-      <div className="max-w-5xl mx-auto p-12 text-center text-slate-500">
-        Donation not found.
+      <div className="max-w-5xl mx-auto p-12 text-center text-slate-500 text-sm">
+        Donation not found or has been deleted.
       </div>
     );
   }
+
+  const isEditable = ['POSTED', 'MATCHED'].includes(donation.status);
 
   // Build map markers
   const donorMarker = {
@@ -83,7 +108,7 @@ export default function DonationDetailPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Top Bar */}
+      {/* Top Bar with Actions */}
       <div className="flex items-center justify-between">
         <Link
           to="/donor"
@@ -92,7 +117,30 @@ export default function DonationDetailPage() {
           <ChevronLeft className="w-4 h-4" />
           <span>Back to Donations</span>
         </Link>
-        <ExpiryBadge usableUntil={donation.usableUntil} />
+
+        <div className="flex items-center space-x-2">
+          {isEditable && (
+            <>
+              <button
+                onClick={() => navigate(`/donor/edit/${donation._id}`)}
+                className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-sm flex items-center space-x-1 transition-colors"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Edit</span>
+              </button>
+
+              <button
+                onClick={() => setShowCancelModal(true)}
+                className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl border border-red-200 flex items-center space-x-1 transition-colors"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>Cancel</span>
+              </button>
+            </>
+          )}
+
+          <ExpiryBadge usableUntil={donation.usableUntil} />
+        </div>
       </div>
 
       {/* Main Status Progression Header */}
@@ -100,7 +148,7 @@ export default function DonationDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2 mb-4">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
-              Surplus Rescue Ref #{donation._id.slice(-6)}
+              Surplus Rescue #{donation._id.slice(-6)}
             </span>
             <h1 className="text-2xl font-black text-slate-900 mt-0.5">{donation.foodName}</h1>
           </div>
@@ -132,7 +180,7 @@ export default function DonationDetailPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm">Matched Recipient Shelter</h3>
-                  <p className="text-[11px] text-slate-400">Algorithmic Best-Fit Selection</p>
+                  <p className="text-[11px] text-slate-400">Multi-factor algorithmic match</p>
                 </div>
               </div>
 
@@ -141,7 +189,7 @@ export default function DonationDetailPage() {
                 className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[10px] rounded-lg border border-emerald-200 flex items-center space-x-1"
               >
                 <Award className="w-3.5 h-3.5" />
-                <span>Why Chosen?</span>
+                <span>Score Breakdown</span>
               </button>
             </div>
 
@@ -173,7 +221,7 @@ export default function DonationDetailPage() {
               </div>
             ) : (
               <div className="py-6 text-center text-xs text-slate-400">
-                Evaluating candidate shelters nearby...
+                Searching candidate shelters in your area...
               </div>
             )}
           </div>
@@ -218,7 +266,7 @@ export default function DonationDetailPage() {
               </div>
             ) : (
               <div className="py-6 text-center text-xs text-slate-400">
-                Pickup request broadcasted to active volunteers in Ajmer. Awaiting driver acceptance.
+                Pickup request broadcasted to active drivers. Awaiting acceptance.
               </div>
             )}
           </div>
@@ -267,6 +315,41 @@ export default function DonationDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div className="text-center">
+              <h3 className="font-bold text-slate-900 text-base">Cancel Food Donation?</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to cancel this donation? Matched shelters will be notified.
+              </p>
+            </div>
+            <div className="flex space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(false)}
+                disabled={cancelling}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
+              >
+                Keep Active
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelDonation}
+                disabled={cancelling}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md shadow-red-200"
+              >
+                {cancelling ? 'Cancelling...' : 'Yes, Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Match Breakdown Modal */}
       <MatchBreakdownModal

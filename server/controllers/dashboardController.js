@@ -261,9 +261,51 @@ const getDriverDashboard = async (req, res, next) => {
   }
 };
 
+/**
+ * Public Community Stats for Landing Page (Unauthenticated)
+ */
+const getPublicStats = async (req, res, next) => {
+  try {
+    const [
+      totalDonations,
+      completedDeliveries,
+      totalNGOs,
+      allDeliveredDonations
+    ] = await Promise.all([
+      Donation.countDocuments(),
+      Donation.countDocuments({ status: DONATION_STATUS.DELIVERED }),
+      User.countDocuments({ role: ROLES.NGO }),
+      Donation.find({ status: DONATION_STATUS.DELIVERED }).select('quantity unit')
+    ]);
+
+    let totalKgRescued = 0;
+    let totalMealsRescued = 0;
+    allDeliveredDonations.forEach((d) => {
+      const impact = calculateImpact(d.quantity, d.unit);
+      totalKgRescued += impact.foodRescuedKg;
+      totalMealsRescued += impact.mealsRescued;
+    });
+
+    res.json({
+      success: true,
+      stats: {
+        totalMealsRescued,
+        totalFoodRescuedKg: Math.round(totalKgRescued),
+        totalDonations,
+        totalNGOs,
+        completedDeliveries
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getAdminDashboard,
   getDonorDashboard,
   getNgoDashboard,
-  getDriverDashboard
+  getDriverDashboard,
+  getPublicStats
 };
+

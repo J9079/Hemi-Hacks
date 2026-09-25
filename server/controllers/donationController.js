@@ -255,9 +255,140 @@ const cancelDonation = async (req, res, next) => {
   }
 };
 
+/**
+ * Update an existing donation (PUT /api/donations/:id)
+ */
+const updateDonation = async (req, res, next) => {
+  try {
+    const donation = await Donation.findById(req.params.id);
+    if (!donation) {
+      return res.status(404).json({ success: false, message: 'Donation not found.' });
+    }
+
+    // Only owner or admin can edit
+    if (donation.donorId.toString() !== req.user._id.toString() && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'You do not have permission to edit this donation.' });
+    }
+
+    // Can only edit if status is POSTED or MATCHED (not yet dispatched with driver)
+    if (!['POSTED', 'MATCHED'].includes(donation.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot edit donation in '${donation.status}' state once volunteer driver is assigned.`
+      });
+    }
+
+    const {
+      foodName,
+      category,
+      quantity,
+      unit,
+      description,
+      preparedAt,
+      usableUntil,
+      pickupAddress,
+      latitude,
+      longitude,
+      foodSafetyInfo,
+      photo
+    } = req.body;
+
+    if (foodName !== undefined) donation.foodName = foodName;
+    if (category !== undefined) donation.category = category;
+    if (quantity !== undefined) {
+      if (Number(quantity) <= 0) {
+        return res.status(400).json({ success: false, message: 'Quantity must be greater than zero.' });
+      }
+      donation.quantity = Number(quantity);
+    }
+    if (unit !== undefined) donation.unit = unit;
+    if (description !== undefined) donation.description = description;
+    if (preparedAt !== undefined) donation.preparedAt = new Date(preparedAt);
+    if (usableUntil !== undefined) {
+      const remainingMinutes = getRemainingMinutes(usableUntil);
+      if (remainingMinutes <= 0) {
+        return res.status(400).json({ success: false, message: 'Usable until time must be in the future.' });
+      }
+      donation.usableUntil = new Date(usableUntil);
+    }
+    if (pickupAddress !== undefined) donation.pickupAddress = pickupAddress;
+    if (latitude !== undefined) donation.latitude = Number(latitude);
+    if (longitude !== undefined) donation.longitude = Number(longitude);
+    if (foodSafetyInfo !== undefined) donation.foodSafetyInfo = foodSafetyInfo;
+    if (photo !== undefined) donation.photo = photo;
+
+    donation.statusHistory.push({
+      status: donation.status,
+      timestamp: new Date(),
+      note: 'Donation details updated by donor',
+      updatedBy: req.user._id
+    });
+
+    await donation.save();
+
+    // Re-evaluate matching if quantity, usable time or location changed
+    const matchResult = await findBestMatchForDonation(donation._id);
+
+    const updated = await Donation.findById(donation._id)
+      .populate('donorId', 'name email phone location')
+      .populate('matchedNgoId', 'name email phone location');
+
+    res.json({
+      success: true,
+      message: 'Donation updated successfully.',
+      donation: updated,
+      matchResult
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Delete an existing donation (DELETE /api/donations/:id)
+ */
+const deleteDonation = async (req, res, next) => {
+  try {
+    const donation = await Donation.findById(req.params.id);
+    if (!donation) {
+      return res.status(404).json({ success: false, message: 'Donation not found.' });
+    }
+
+    // Only owner or admin can delete
+    if (donation.donorId.toString() !== req.user._id.toString() && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'You do not have permission to delete this donation.' });
+    }
+
+    // Prevent deletion if actively on route
+    if (['PICKUP_STARTED', 'PICKED_UP', 'IN_TRANSIT'].includes(donation.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete donation while volunteer driver is currently in transit.'
+      });
+    }
+
+    // Remove associated matches
+    const Match = require('../models/Match');
+    await Match.deleteMany({ donationId: donation._id });
+
+    // Delete donation
+    await Donation.findByIdAndDelete(donation._id);
+
+    res.json({
+      success: true,
+      message: 'Donation deleted successfully.'
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   createDonation,
   getDonations,
   getDonationById,
+  updateDonation,
+  deleteDonation,
   cancelDonation
 };
+

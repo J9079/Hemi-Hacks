@@ -8,7 +8,7 @@ const getMyNotifications = async (req, res, next) => {
     const notifications = await Notification.find({ userId: req.user._id })
       .populate('relatedDonationId', 'foodName quantity unit status')
       .sort({ createdAt: -1 })
-      .limit(30);
+      .limit(40);
 
     const unreadCount = await Notification.countDocuments({
       userId: req.user._id,
@@ -58,8 +58,29 @@ const markAllAsRead = async (req, res, next) => {
   }
 };
 
+/**
+ * Delete a notification (DELETE /api/notifications/:id)
+ */
+const deleteNotification = async (req, res, next) => {
+  try {
+    const notification = await Notification.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user._id
+    });
+
+    if (!notification) {
+      return res.status(404).json({ success: false, message: 'Notification not found.' });
+    }
+
+    res.json({ success: true, message: 'Notification deleted.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getMyNotifications,
   markAsRead,
-  markAllAsRead
+  markAllAsRead,
+  deleteNotification
 };

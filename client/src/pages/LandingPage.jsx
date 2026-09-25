@@ -19,33 +19,41 @@ import {
 } from 'lucide-react';
 
 export default function LandingPage() {
-  const { quickSwitchRole } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
-    totalMealsRescued: 740,
-    totalDonations: 15,
-    totalNGOs: 5,
-    totalFoodRescuedKg: 310
+    totalMealsRescued: 0,
+    totalDonations: 0,
+    totalNGOs: 0,
+    totalFoodRescuedKg: 0
   });
 
   useEffect(() => {
-    // Attempt to load live backend metrics
+    // Load live public community metrics from database
     const fetchStats = async () => {
       try {
-        const res = await api.get('/dashboard/admin');
+        const res = await api.get('/dashboard/public-stats');
         if (res.data?.success && res.data.stats) {
           setStats(res.data.stats);
         }
       } catch (err) {
-        // use default seed figures
+        // Retain 0 counts on initial blank deployment
       }
     };
     fetchStats();
   }, []);
 
-  const handleQuickDemo = async (role, path) => {
-    await quickSwitchRole(role);
-    navigate(path);
+  const handleAction = (targetRole, targetPath) => {
+    if (isAuthenticated) {
+      if (user?.role === targetRole || user?.role === 'ADMIN') {
+        navigate(targetPath);
+      } else {
+        // Navigate to their role dashboard
+        navigate(`/${user?.role?.toLowerCase() || ''}`);
+      }
+    } else {
+      navigate(`/register?role=${targetRole}`);
+    }
   };
 
   return (
@@ -53,9 +61,9 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-b from-emerald-50/80 via-white to-slate-50 pt-16 pb-20 border-b border-slate-200/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-emerald-100/80 border border-emerald-200 text-emerald-800 text-xs font-bold mb-6 animate-pulse">
+          <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-emerald-100/80 border border-emerald-200 text-emerald-800 text-xs font-bold mb-6">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>AmiHacks Real-Time Logistics Hackathon MVP</span>
+            <span>Intelligent Real-Time Food Rescue & Redistribution Network</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-black text-slate-900 tracking-tight max-w-4xl mx-auto leading-tight">
@@ -72,7 +80,7 @@ export default function LandingPage() {
           {/* Action CTAs */}
           <div className="mt-10 flex flex-wrap justify-center gap-4">
             <button
-              onClick={() => handleQuickDemo('DONOR', '/donor/post')}
+              onClick={() => handleAction('DONOR', '/donor/post')}
               className="px-6 py-3.5 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200 flex items-center space-x-2 transition-transform hover:-translate-y-0.5"
             >
               <UtensilsCrossed className="w-4 h-4" />
@@ -81,7 +89,7 @@ export default function LandingPage() {
             </button>
 
             <button
-              onClick={() => handleQuickDemo('NGO', '/ngo')}
+              onClick={() => handleAction('NGO', '/ngo')}
               className="px-6 py-3.5 rounded-xl font-bold text-sm bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 shadow-sm flex items-center space-x-2 transition-transform hover:-translate-y-0.5"
             >
               <HeartHandshake className="w-4 h-4 text-emerald-600" />
@@ -89,34 +97,11 @@ export default function LandingPage() {
             </button>
 
             <button
-              onClick={() => handleQuickDemo('DRIVER', '/driver')}
+              onClick={() => handleAction('DRIVER', '/driver')}
               className="px-6 py-3.5 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200 flex items-center space-x-2 transition-transform hover:-translate-y-0.5"
             >
               <Truck className="w-4 h-4" />
               <span>Join as Volunteer</span>
-            </button>
-          </div>
-
-          {/* Quick Demo Walkthrough Banner for Evaluators */}
-          <div className="mt-12 max-w-3xl mx-auto p-4 bg-white rounded-2xl border border-slate-200 shadow-sm text-left flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2.5 bg-amber-100 text-amber-800 rounded-xl">
-                <Zap className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Judge Presentation Scenario
-                </h4>
-                <p className="text-xs font-semibold text-slate-800">
-                  Royal Spice has 30kg Cooked Rice + Dal in Ajmer. Test the full workflow!
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => handleQuickDemo('DONOR', '/donor')}
-              className="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl whitespace-nowrap transition-colors"
-            >
-              Launch Live Demo Flow
             </button>
           </div>
         </div>
@@ -135,28 +120,28 @@ export default function LandingPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             <div className="p-4 bg-slate-800/60 rounded-2xl border border-slate-700">
               <span className="text-3xl sm:text-4xl font-black text-emerald-400 block">
-                {stats.totalMealsRescued || 740}+
+                {stats.totalMealsRescued || 0}
               </span>
               <span className="text-xs text-slate-300 font-medium mt-1 block">Meals Rescued</span>
             </div>
 
             <div className="p-4 bg-slate-800/60 rounded-2xl border border-slate-700">
               <span className="text-3xl sm:text-4xl font-black text-teal-400 block">
-                {stats.totalFoodRescuedKg || 310}+ kg
+                {stats.totalFoodRescuedKg || 0} kg
               </span>
               <span className="text-xs text-slate-300 font-medium mt-1 block">Food Diverted</span>
             </div>
 
             <div className="p-4 bg-slate-800/60 rounded-2xl border border-slate-700">
               <span className="text-3xl sm:text-4xl font-black text-amber-400 block">
-                {stats.totalDonations || 15}+
+                {stats.totalDonations || 0}
               </span>
-              <span className="text-xs text-slate-300 font-medium mt-1 block">Active Rescues</span>
+              <span className="text-xs text-slate-300 font-medium mt-1 block">Total Rescues</span>
             </div>
 
             <div className="p-4 bg-slate-800/60 rounded-2xl border border-slate-700">
               <span className="text-3xl sm:text-4xl font-black text-blue-400 block">
-                {stats.totalNGOs || 5}+
+                {stats.totalNGOs || 0}
               </span>
               <span className="text-xs text-slate-300 font-medium mt-1 block">Partner Shelters</span>
             </div>

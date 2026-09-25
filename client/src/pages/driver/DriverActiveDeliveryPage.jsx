@@ -446,7 +446,16 @@ export default function DriverActiveDeliveryPage() {
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
               <span>STEP 2: DROP-OFF SHELTER</span>
             </div>
-            <h4 className="font-extrabold text-slate-900 text-sm">{delivery.ngoId?.name}</h4>
+            <div>
+              <h4 className="font-extrabold text-slate-900 text-sm">
+                {shelterProfile?.organizationName || delivery.ngoId?.name}
+              </h4>
+              {shelterProfile?.organizationName && delivery.ngoId?.name && (
+                <span className="text-[11px] text-slate-500 font-medium block">
+                  Contact / Representative: {delivery.ngoId.name}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-600 flex items-start space-x-1.5">
               <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
               <span>{delivery.deliveryLocation?.address}</span>

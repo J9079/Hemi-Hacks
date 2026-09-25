@@ -160,14 +160,40 @@ export default function Navbar() {
             )}
 
             {role === 'ADMIN' && (
-              <Link
-                to="/admin"
-                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                  location.pathname === '/admin' ? 'text-purple-700 bg-purple-50' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Admin Command Center
-              </Link>
+              <>
+                <Link
+                  to="/admin"
+                  className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
+                    location.pathname === '/admin' ? 'text-purple-700 bg-purple-50' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Admin Center
+                </Link>
+                <Link
+                  to="/donor"
+                  className={`px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                    location.pathname.startsWith('/donor') ? 'text-amber-700 bg-amber-50' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Donors
+                </Link>
+                <Link
+                  to="/ngo"
+                  className={`px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                    location.pathname === '/ngo' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Shelters
+                </Link>
+                <Link
+                  to="/driver"
+                  className={`px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                    location.pathname === '/driver' ? 'text-blue-700 bg-blue-50' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Drivers
+                </Link>
+              </>
             )}
           </nav>
 

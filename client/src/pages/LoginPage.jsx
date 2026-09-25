@@ -28,6 +28,21 @@ export default function LoginPage() {
     }
   };
 
+  const handleDemoLogin = async (demoEmail, demoPassword) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setError('');
+    setSubmitting(true);
+    try {
+      const data = await login(demoEmail, demoPassword);
+      navigateRole(data.user.role);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Login failed.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const navigateRole = (r) => {
     switch (r) {
       case 'DONOR':
@@ -129,6 +144,54 @@ export default function LoginPage() {
           <Link to="/register" className="font-bold text-emerald-600 hover:underline">
             Create an account
           </Link>
+        </div>
+
+        {/* 1-Click Demo Logins */}
+        <div className="mt-5 pt-4 border-t border-slate-100">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-2.5 text-center">
+            ⚡ Quick Demo 1-Click Role Login
+          </p>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => handleDemoLogin('admin@surplustoshelter.org', 'password123')}
+              className="p-2.5 rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100/90 text-purple-900 text-left transition-all hover:scale-[1.02] disabled:opacity-50"
+            >
+              <span className="font-black block text-[11px]">🛡️ System Admin</span>
+              <span className="text-[9px] text-purple-600 font-semibold block truncate">admin@surplustoshelter.org</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => handleDemoLogin('fresh@goldenharvest.com', 'password123')}
+              className="p-2.5 rounded-xl border border-amber-200 bg-amber-50/70 hover:bg-amber-100/90 text-amber-900 text-left transition-all hover:scale-[1.02] disabled:opacity-50"
+            >
+              <span className="font-black block text-[11px]">🍲 Food Donor</span>
+              <span className="text-[9px] text-amber-600 font-semibold block truncate">fresh@goldenharvest.com</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => handleDemoLogin('contact@annamkitchen.org', 'password123')}
+              className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/90 text-emerald-900 text-left transition-all hover:scale-[1.02] disabled:opacity-50"
+            >
+              <span className="font-black block text-[11px]">🏢 Shelter / NGO</span>
+              <span className="text-[9px] text-emerald-600 font-semibold block truncate">contact@annamkitchen.org</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => handleDemoLogin('vikas@drivervolunteer.org', 'password123')}
+              className="p-2.5 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100/90 text-blue-900 text-left transition-all hover:scale-[1.02] disabled:opacity-50"
+            >
+              <span className="font-black block text-[11px]">🚚 Volunteer Driver</span>
+              <span className="text-[9px] text-blue-600 font-semibold block truncate">vikas@drivervolunteer.org</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

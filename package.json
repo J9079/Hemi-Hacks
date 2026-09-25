@@ -1,0 +1,14 @@
+{
+  "name": "surplus-to-shelter",
+  "version": "1.0.0",
+  "description": "Real-Time Food Rescue Routing Platform for AmiHacks",
+  "scripts": {
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "seed": "cd server && npm run seed",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

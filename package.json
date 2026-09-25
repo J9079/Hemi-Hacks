@@ -4,7 +4,7 @@
   "description": "Real-Time Food Rescue Routing Platform - Production Unified Deployment",
   "scripts": {
     "install:all": "npm --prefix server install && npm --prefix client install --include=dev",
-    "build:client": "npm --prefix client run build",
+    "build:client": "cd client && npx vite build",
     "build": "npm run install:all && npm run build:client",
     "start": "node server/server.js",
     "seed": "node server/seeds/seedData.js",

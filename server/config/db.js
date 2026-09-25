@@ -3,6 +3,11 @@ const mongoose = require('mongoose');
 let mongoMemoryServer = null;
 
 const connectDB = async () => {
+  // If already connected (e.g. serverless warm container), reuse existing connection
+  if (mongoose.connection.readyState >= 1) {
+    return;
+  }
+
   const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/surplus_to_shelter';
   
   try {

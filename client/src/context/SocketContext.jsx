@@ -54,8 +54,9 @@ export const SocketProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // Connect to server
-    const s = io('/', {
+    // Connect to server (supports custom backend URL if deployed separately)
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || '/';
+    const s = io(socketUrl, {
       transports: ['websocket', 'polling']
     });
 
